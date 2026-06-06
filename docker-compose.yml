@@ -1,0 +1,57 @@
+services:
+  obsidian:
+    image: ${OBSIDIAN_IMAGE}
+    container_name: ${OBSIDIAN_CONTAINER_NAME}
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    # Ports are internal only; access via oauth2-proxy below
+    # To bypass SSO temporarily, uncomment the next two lines:
+    # ports:
+    #   - "${HTTP_PORT}:3000"
+    #   - "${HTTPS_PORT}:3001"
+    volumes:
+      - ${CONFIG_PATH}:/config
+    shm_size: ${SHM_SIZE}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - obsidian-net
+
+  oauth2-proxy:
+    image: quay.io/oauth2-proxy/oauth2-proxy:v7.6.0
+    container_name: oauth2-proxy
+    environment:
+      - OAUTH2_PROXY_PROVIDER=${OAUTH2_PROVIDER}
+      - OAUTH2_PROXY_CLIENT_ID=${OAUTH2_CLIENT_ID}
+      - OAUTH2_PROXY_CLIENT_SECRET=${OAUTH2_CLIENT_SECRET}
+      - OAUTH2_PROXY_OIDC_ISSUER_URL=${OAUTH2_OIDC_ISSUER_URL}
+      - OAUTH2_PROXY_REDIRECT_URL=${OAUTH2_REDIRECT_URL}
+      - OAUTH2_PROXY_COOKIE_SECRET=${OAUTH2_COOKIE_SECRET}
+      - OAUTH2_PROXY_EMAIL_DOMAINS=${OAUTH2_EMAIL_DOMAIN}
+      - OAUTH2_PROXY_UPSTREAMS=http://obsidian:3000
+      - OAUTH2_PROXY_HTTP_ADDRESS=0.0.0.0:4180
+      - OAUTH2_PROXY_COOKIE_SECURE=false
+      - OAUTH2_PROXY_COOKIE_HTTPONLY=true
+      - OAUTH2_PROXY_REVERSE_PROXY=true
+      - OAUTH2_PROXY_SILENCE_PING_LOGGING=true
+      - OAUTH2_PROXY_INSECURE_OIDC_ALLOW_UNVERIFIED_EMAIL=true
+      # Websocket passthrough is enabled by default in v7+ (required for Selkies)
+    ports:
+      - "${HTTP_PORT}:4180"
+    depends_on:
+      obsidian:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - obsidian-net
+
+networks:
+  obsidian-net:
+    driver: bridge
