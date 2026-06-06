@@ -1,0 +1,68 @@
+services:
+  obsidian:
+    image: ${DOCKERHUB_USERNAME}/${PRIVATE_REPO_NAME}:${PRIVATE_IMAGE_TAG:-latest}
+    container_name: ${OBSIDIAN_CONTAINER_NAME}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+      - CUSTOM_RES_W=1920
+      - CUSTOM_RES_H=1080
+      - CUSTOM_RES_DPI=96
+      - DISPLAY=:99
+      - SELKIES_ENABLE_AUDIO=false
+      - SELKIES_MODE=websockets
+      - SELKIES_ENABLE_CLIPBOARD=true
+      - SELKIES_ENABLE_XDUMMY=true
+      - DOCKER_MODS=linuxserver/mods:universal-docker
+      - XDG_SESSION_TYPE=x11
+      - WAYLAND_DISPLAY=
+    volumes:
+      - ${CONFIG_PATH}:/config
+    shm_size: ${SHM_SIZE}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    security_opt:
+      - seccomp:unconfined
+    restart: unless-stopped
+    networks:
+      - obsidian-net
+
+  oauth2-proxy:
+    image: quay.io/oauth2-proxy/oauth2-proxy:v7.6.0
+    container_name: oauth2-proxy
+    environment:
+      - OAUTH2_PROXY_PROVIDER=${OAUTH2_PROVIDER}
+      - OAUTH2_PROXY_CLIENT_ID=${OAUTH2_CLIENT_ID}
+      - OAUTH2_PROXY_CLIENT_SECRET=${OAUTH2_CLIENT_SECRET}
+      - OAUTH2_PROXY_OIDC_ISSUER_URL=${OAUTH2_OIDC_ISSUER_URL}
+      - OAUTH2_PROXY_REDIRECT_URL=${OAUTH2_REDIRECT_URL}
+      - OAUTH2_PROXY_COOKIE_SECRET=${OAUTH2_COOKIE_SECRET}
+      - OAUTH2_PROXY_EMAIL_DOMAINS=${OAUTH2_EMAIL_DOMAIN}
+      - OAUTH2_PROXY_UPSTREAMS=http://obsidian:3000
+      - OAUTH2_PROXY_HTTP_ADDRESS=0.0.0.0:4180
+      - OAUTH2_PROXY_COOKIE_SECURE=false
+      - OAUTH2_PROXY_COOKIE_HTTPONLY=true
+      - OAUTH2_PROXY_REVERSE_PROXY=true
+      - OAUTH2_PROXY_SILENCE_PING_LOGGING=true
+      - OAUTH2_PROXY_INSECURE_OIDC_ALLOW_UNVERIFIED_EMAIL=true
+      - OAUTH2_PROXY_WS_UPSTREAM=true
+    ports:
+      - "${HTTP_PORT}:4180"
+    depends_on:
+      obsidian:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - obsidian-net
+
+networks:
+  obsidian-net:
+    driver: bridge
