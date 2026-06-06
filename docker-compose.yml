@@ -57,8 +57,8 @@ services:
       - OAUTH2_PROXY_INSECURE_OIDC_ALLOW_UNVERIFIED_EMAIL=true
       - OAUTH2_PROXY_WS_UPSTREAM=true
       # Websocket passthrough is enabled by default in v7+ (required for Selkies)
-    ports:
-      - "${HTTP_PORT}:4180"
+    # No public port mapping needed; nginx-proxy-manager accesses via Docker internal network
+    # To debug directly, temporarily uncomment: ports: ["127.0.0.1:3000:4180"]
     depends_on:
       obsidian:
         condition: service_healthy
