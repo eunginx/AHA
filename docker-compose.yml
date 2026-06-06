@@ -6,6 +6,17 @@ services:
       - PUID=${PUID}
       - PGID=${PGID}
       - TZ=${TZ}
+      - CUSTOM_RES_W=1920
+      - CUSTOM_RES_H=1080
+      - CUSTOM_RES_DPI=96
+      - DISPLAY=:99
+      - SELKIES_ENABLE_AUDIO=false
+      - SELKIES_MODE=websockets
+      - SELKIES_ENABLE_CLIPBOARD=true
+      - SELKIES_ENABLE_XDUMMY=true
+      - DOCKER_MODS=linuxserver/mods:universal-docker
+      - XDG_SESSION_TYPE=x11
+      - WAYLAND_DISPLAY=
     # Ports are internal only; access via oauth2-proxy below
     # To bypass SSO temporarily, uncomment the next two lines:
     # ports:
@@ -20,6 +31,8 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
+    security_opt:
+      - seccomp:unconfined
     restart: unless-stopped
     networks:
       - obsidian-net
@@ -42,6 +55,7 @@ services:
       - OAUTH2_PROXY_REVERSE_PROXY=true
       - OAUTH2_PROXY_SILENCE_PING_LOGGING=true
       - OAUTH2_PROXY_INSECURE_OIDC_ALLOW_UNVERIFIED_EMAIL=true
+      - OAUTH2_PROXY_WS_UPSTREAM=true
       # Websocket passthrough is enabled by default in v7+ (required for Selkies)
     ports:
       - "${HTTP_PORT}:4180"
