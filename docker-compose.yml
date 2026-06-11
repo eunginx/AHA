@@ -9,14 +9,12 @@ services:
       - CUSTOM_RES_W=1920
       - CUSTOM_RES_H=1080
       - CUSTOM_RES_DPI=96
-      - DISPLAY=:99
       - SELKIES_ENABLE_AUDIO=false
       - SELKIES_MODE=websockets
       - SELKIES_ENABLE_CLIPBOARD=true
-      - SELKIES_ENABLE_XDUMMY=true
       - DOCKER_MODS=linuxserver/mods:universal-docker
-      - XDG_SESSION_TYPE=x11
-      - WAYLAND_DISPLAY=
+      - PIXELFLUX_WAYLAND=true
+      - WAYLAND_DISPLAY=/config/.XDG/wayland-1
     # Ports are internal only; access via oauth2-proxy below
     # To bypass SSO temporarily, uncomment the next two lines:
     # ports:
