@@ -15,11 +15,9 @@ services:
       - DOCKER_MODS=linuxserver/mods:universal-docker
       - PIXELFLUX_WAYLAND=true
       - WAYLAND_DISPLAY=/config/.XDG/wayland-1
-    # Ports are internal only; access via oauth2-proxy below
-    # To bypass SSO temporarily, uncomment the next two lines:
-    # ports:
-    #   - "${HTTP_PORT}:3000"
-    #   - "${HTTPS_PORT}:3001"
+    ports:
+      - "${HTTP_PORT}:3000"
+      - "${HTTPS_PORT}:3001"
     volumes:
       - ${CONFIG_PATH}:/config
     shm_size: ${SHM_SIZE}
@@ -56,8 +54,8 @@ services:
       - OAUTH2_PROXY_WS_UPSTREAM=true
       - OAUTH2_PROXY_CODE_CHALLENGE_METHOD=S256
       # Websocket passthrough is enabled by default in v7+ (required for Selkies)
-    # No public port mapping needed; nginx-proxy-manager accesses via Docker internal network
-    # To debug directly, temporarily uncomment: ports: ["127.0.0.1:3000:4180"]
+    ports:
+      - "4180:4180"
     depends_on:
       obsidian:
         condition: service_healthy
