@@ -15,6 +15,17 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# Sudo support for Docker commands
+# ---------------------------------------------------------------------------
+USE_SUDO=${USE_SUDO:-false}
+if [[ "$USE_SUDO" == "true" ]]; then
+    SUDO="sudo"
+    log_info "Sudo mode enabled for Docker commands"
+else
+    SUDO=""
+fi
+
+# ---------------------------------------------------------------------------
 # Colors & TeamCity service messages
 # ---------------------------------------------------------------------------
 RED='\033[0;31m'
@@ -82,7 +93,7 @@ check_dependencies() {
     log_info "Checking Docker / Compose ..."
 
     # Skip dependency checks if containers are already running
-    if $COMPOSE_CMD ps -q 2>/dev/null | grep -q .; then
+    if $SUDO $COMPOSE_CMD ps -q 2>/dev/null | grep -q .; then
         log_info "Containers already running, skipping dependency checks"
         tc_block_close "dependencies"
         return 0
@@ -92,12 +103,12 @@ check_dependencies() {
         log_warn "Docker not found in PATH - will fail if Docker commands are needed"
     fi
 
-    if ! $COMPOSE_CMD version &>/dev/null 2>&1; then
+    if ! $SUDO $COMPOSE_CMD version &>/dev/null 2>&1; then
         log_warn "'$COMPOSE_CMD' not available - will fail if compose commands are needed"
     fi
 
     # Ensure daemon is reachable (warn only, don't fail)
-    if ! docker info &>/dev/null; then
+    if ! $SUDO docker info &>/dev/null; then
         log_warn "Docker daemon unreachable - will fail if Docker commands are needed"
     fi
 
@@ -115,9 +126,9 @@ validate_compose() {
     fi
 
     # Expand env and check syntax
-    if ! $COMPOSE_CMD config >/dev/null 2>&1; then
+    if ! $SUDO $COMPOSE_CMD config >/dev/null 2>&1; then
         log_error "docker-compose.yml validation failed"
-        $COMPOSE_CMD config 2>&1 || true
+        $SUDO $COMPOSE_CMD config 2>&1 || true
         return 1
     fi
 
@@ -125,7 +136,7 @@ validate_compose() {
     local images
     images=$($COMPOSE_CMD config | grep -E "^\s+image:" | awk '{print $2}' | sort -u)
     for img in $images; do
-        if ! docker image inspect "$img" &>/dev/null; then
+        if ! $SUDO docker image inspect "$img" &>/dev/null; then
             log_warn "Image '$img' not present locally; will be pulled"
         fi
     done
@@ -178,12 +189,12 @@ check_env_vars() {
 build_images() {
     tc_block_open "build"
     log_info "Pulling images ..."
-    $COMPOSE_CMD pull --quiet 2>&1 | while read -r line; do log_debug "$line"; done
+    $SUDO $COMPOSE_CMD pull --quiet 2>&1 | while read -r line; do log_debug "$line"; done
 
     # Only build if there is a build: section
-    if $COMPOSE_CMD config 2>/dev/null | grep -q "build:"; then
+    if $SUDO $COMPOSE_CMD config 2>/dev/null | grep -q "build:"; then
         log_info "Building custom images ..."
-        $COMPOSE_CMD build --parallel 2>&1 | while read -r line; do log_debug "$line"; done
+        $SUDO $COMPOSE_CMD build --parallel 2>&1 | while read -r line; do log_debug "$line"; done
     fi
 
     log_success "Images ready"
@@ -198,27 +209,27 @@ stop_containers() {
     log_info "Stopping obsidian and oauth2-proxy containers and removing related volumes/networks ..."
 
     # Stop specific containers
-    if $COMPOSE_CMD ps -q obsidian 2>/dev/null | grep -q .; then
+    if $SUDO $COMPOSE_CMD ps -q obsidian 2>/dev/null | grep -q .; then
         log_info "Stopping obsidian container ..."
-        $COMPOSE_CMD stop obsidian 2>&1 | while read -r line; do log_debug "$line"; done
-        $COMPOSE_CMD rm -v obsidian 2>&1 | while read -r line; do log_debug "$line"; done
+        $SUDO $COMPOSE_CMD stop obsidian 2>&1 | while read -r line; do log_debug "$line"; done
+        $SUDO $COMPOSE_CMD rm -v obsidian 2>&1 | while read -r line; do log_debug "$line"; done
     fi
 
-    if $COMPOSE_CMD ps -q oauth2-proxy 2>/dev/null | grep -q .; then
+    if $SUDO $COMPOSE_CMD ps -q oauth2-proxy 2>/dev/null | grep -q .; then
         log_info "Stopping oauth2-proxy container ..."
-        $COMPOSE_CMD stop oauth2-proxy 2>&1 | while read -r line; do log_debug "$line"; done
-        $COMPOSE_CMD rm -v oauth2-proxy 2>&1 | while read -r line; do log_debug "$line"; done
+        $SUDO $COMPOSE_CMD stop oauth2-proxy 2>&1 | while read -r line; do log_debug "$line"; done
+        $SUDO $COMPOSE_CMD rm -v oauth2-proxy 2>&1 | while read -r line; do log_debug "$line"; done
     fi
 
     # Remove obsidian-specific network
-    if docker network ls | grep -q "obsidian-net"; then
+    if $SUDO docker network ls | grep -q "obsidian-net"; then
         log_info "Removing obsidian-net network ..."
-        docker network rm obsidian-net 2>&1 | while read -r line; do log_debug "$line"; done
+        $SUDO docker network rm obsidian-net 2>&1 | while read -r line; do log_debug "$line"; done
     fi
 
     # Remove obsidian-specific volumes (named volumes from compose)
     log_info "Removing obsidian volumes ..."
-    docker volume ls -q | grep -E "obsidian" | xargs -r docker volume rm 2>&1 | while read -r line; do log_debug "$line"; done
+    $SUDO docker volume ls -q | grep -E "obsidian" | xargs -r $SUDO docker volume rm 2>&1 | while read -r line; do log_debug "$line"; done
 
     log_success "Obsidian and oauth2-proxy containers stopped, related volumes and networks removed"
     tc_block_close "stop"
@@ -227,7 +238,7 @@ stop_containers() {
 start_containers() {
     tc_block_open "start"
     log_info "Starting containers (detached) with rebuild ..."
-    $COMPOSE_CMD up -d --build --remove-orphans 2>&1 | while read -r line; do log_debug "$line"; done
+    $SUDO $COMPOSE_CMD up -d --build --remove-orphans 2>&1 | while read -r line; do log_debug "$line"; done
     log_success "Containers started and rebuilt"
     tc_block_close "start"
 }
@@ -248,7 +259,7 @@ wait_for_health() {
     while [[ $elapsed -lt $max_wait ]]; do
         # Check Obsidian (has explicit healthcheck)
         if [[ $obs_ok -eq 0 ]]; then
-            if $COMPOSE_CMD ps obsidian 2>/dev/null | grep -q "healthy"; then
+            if $SUDO $COMPOSE_CMD ps obsidian 2>/dev/null | grep -q "healthy"; then
                 log_success "Obsidian is healthy"
                 obs_ok=1
             fi
@@ -256,8 +267,8 @@ wait_for_health() {
 
         # Check oauth2-proxy (no native healthcheck; verify Up + port response)
         if [[ $oauth_ok -eq 0 ]]; then
-            if $COMPOSE_CMD ps oauth2-proxy 2>/dev/null | grep -q "Up"; then
-                if docker exec oauth2-proxy wget -qO- http://localhost:4180/ping --timeout=3 &>/dev/null || \
+            if $SUDO $COMPOSE_CMD ps oauth2-proxy 2>/dev/null | grep -q "Up"; then
+                if $SUDO docker exec oauth2-proxy wget -qO- http://localhost:4180/ping --timeout=3 &>/dev/null || \
                    curl -sf http://localhost:${HTTP_PORT:-3000}/ping &>/dev/null; then
                     log_success "OAuth2 proxy is responding"
                     oauth_ok=1
@@ -279,13 +290,13 @@ wait_for_health() {
     log_error "Health check timeout (${max_wait}s)"
     echo ""
     echo "--- Container status ---"
-    $COMPOSE_CMD ps
+    $SUDO $COMPOSE_CMD ps
     echo ""
     echo "--- Obsidian last 50 lines ---"
-    $COMPOSE_CMD logs --tail=50 obsidian 2>&1 || true
+    $SUDO $COMPOSE_CMD logs --tail=50 obsidian 2>&1 || true
     echo ""
     echo "--- OAuth2-proxy last 50 lines ---"
-    $COMPOSE_CMD logs --tail=50 oauth2-proxy 2>&1 || true
+    $SUDO $COMPOSE_CMD logs --tail=50 oauth2-proxy 2>&1 || true
     tc_block_close "healthcheck"
     return 1
 }
@@ -297,7 +308,7 @@ show_status() {
     tc_block_open "status"
     echo ""
     echo "========== DEPLOYMENT STATUS =========="
-    $COMPOSE_CMD ps
+    $SUDO $COMPOSE_CMD ps
     echo ""
     echo "--- Services ---"
     echo "  Obsidian (via OAuth2): http://localhost:${HTTP_PORT:-3000}"
