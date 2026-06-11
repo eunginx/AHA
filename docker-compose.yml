@@ -54,6 +54,7 @@ services:
       - OAUTH2_PROXY_SILENCE_PING_LOGGING=true
       - OAUTH2_PROXY_INSECURE_OIDC_ALLOW_UNVERIFIED_EMAIL=true
       - OAUTH2_PROXY_WS_UPSTREAM=true
+      - OAUTH2_PROXY_CODE_CHALLENGE_METHOD=S256
       # Websocket passthrough is enabled by default in v7+ (required for Selkies)
     # No public port mapping needed; nginx-proxy-manager accesses via Docker internal network
     # To debug directly, temporarily uncomment: ports: ["127.0.0.1:3000:4180"]
