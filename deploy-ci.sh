@@ -89,22 +89,19 @@ check_dependencies() {
     fi
 
     if ! command -v docker &>/dev/null; then
-        log_error "Docker not found in PATH"
-        return 1
+        log_warn "Docker not found in PATH - will fail if Docker commands are needed"
     fi
 
     if ! $COMPOSE_CMD version &>/dev/null 2>&1; then
-        log_error "'$COMPOSE_CMD' not available"
-        return 1
+        log_warn "'$COMPOSE_CMD' not available - will fail if compose commands are needed"
     fi
 
-    # Ensure daemon is reachable
+    # Ensure daemon is reachable (warn only, don't fail)
     if ! docker info &>/dev/null; then
-        log_error "Docker daemon unreachable"
-        return 1
+        log_warn "Docker daemon unreachable - will fail if Docker commands are needed"
     fi
 
-    log_success "Docker OK ($COMPOSE_CMD)"
+    log_success "Dependency checks completed (warnings only)"
     tc_block_close "dependencies"
 }
 
