@@ -301,10 +301,10 @@ wait_for_health() {
             fi
         fi
 
-        # Check oauth2-proxy (has explicit healthcheck)
+        # Check oauth2-proxy (no healthcheck; check if Up)
         if [[ $oauth_ok -eq 0 ]]; then
-            if $SUDO $COMPOSE_CMD ps oauth2-proxy 2>/dev/null | grep -q "healthy"; then
-                log_success "OAuth2 proxy is healthy"
+            if $SUDO $COMPOSE_CMD ps oauth2-proxy 2>/dev/null | grep -q "Up"; then
+                log_success "OAuth2 proxy is running"
                 oauth_ok=1
             fi
         fi
