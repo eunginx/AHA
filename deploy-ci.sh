@@ -6,6 +6,31 @@
 set -euo pipefail
 
 # ---------------------------------------------------------------------------
+# Colors & TeamCity service messages
+# ---------------------------------------------------------------------------
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+NC='\033[0m'
+
+TC_IS_TEAMCITY=${TEAMCITY_VERSION:-}
+
+log_raw()  { echo -e "$1"; }
+log_info()    { echo -e "${BLUE}[INFO]${NC}  $1";  tc_progress "$1"; }
+log_success() { echo -e "${GREEN}[OK]${NC}   $1";  tc_status NORMAL "$1"; }
+log_warn()    { echo -e "${YELLOW}[WARN]${NC} $1"; tc_status WARNING "$1"; }
+log_error()   { echo -e "${RED}[FAIL]${NC} $1";   tc_status FAILURE "$1"; }
+log_debug()   { [[ "${DEBUG:-}" == "true" ]] && echo -e "${CYAN}[DBG]${NC}  $1" || true; }
+
+# TeamCity helpers
+tc_progress() { [[ -n "$TC_IS_TEAMCITY" ]] && echo "##teamcity[progressMessage '$1']"; true; }
+tc_status()   { [[ -n "$TC_IS_TEAMCITY" ]] && echo "##teamcity[buildStatus text='{build.status.text} | $2']"; true; }
+tc_block_open()  { [[ -n "$TC_IS_TEAMCITY" ]] && echo "##teamcity[blockOpened name='$1']"; true; }
+tc_block_close() { [[ -n "$TC_IS_TEAMCITY" ]] && echo "##teamcity[blockClosed name='$1']"; true; }
+
+# ---------------------------------------------------------------------------
 # Detect compose command (v2 vs legacy)
 # ---------------------------------------------------------------------------
 if command -v docker &>/dev/null && docker compose version &>/dev/null 2>&1; then
