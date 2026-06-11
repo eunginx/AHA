@@ -191,10 +191,11 @@ build_images() {
 # ---------------------------------------------------------------------------
 stop_containers() {
     tc_block_open "stop"
-    log_info "Stopping existing containers ..."
+    log_info "Stopping existing containers and removing volumes/networks ..."
     if $COMPOSE_CMD ps -q 2>/dev/null | grep -q .; then
-        $COMPOSE_CMD down --remove-orphans 2>&1 | while read -r line; do log_debug "$line"; done
-        log_success "Containers stopped"
+        log_info "Stopping containers and removing volumes/networks ..."
+        $COMPOSE_CMD down --volumes --remove-orphans 2>&1 | while read -r line; do log_debug "$line"; done
+        log_success "Containers stopped, volumes and networks removed"
     else
         log_info "No running containers found"
     fi
@@ -203,9 +204,9 @@ stop_containers() {
 
 start_containers() {
     tc_block_open "start"
-    log_info "Starting containers (detached) ..."
-    $COMPOSE_CMD up -d --remove-orphans 2>&1 | while read -r line; do log_debug "$line"; done
-    log_success "Containers started"
+    log_info "Starting containers (detached) with rebuild ..."
+    $COMPOSE_CMD up -d --build --remove-orphans 2>&1 | while read -r line; do log_debug "$line"; done
+    log_success "Containers started and rebuilt"
     tc_block_close "start"
 }
 
