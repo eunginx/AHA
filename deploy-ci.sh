@@ -301,14 +301,11 @@ wait_for_health() {
             fi
         fi
 
-        # Check oauth2-proxy (no native healthcheck; verify Up + port response)
+        # Check oauth2-proxy (has explicit healthcheck)
         if [[ $oauth_ok -eq 0 ]]; then
-            if $SUDO $COMPOSE_CMD ps oauth2-proxy 2>/dev/null | grep -q "Up"; then
-                if $SUDO docker exec oauth2-proxy wget -qO- http://localhost:4180/ping --timeout=3 &>/dev/null || \
-                   curl -sf http://localhost:${HTTP_PORT:-3000}/ping &>/dev/null; then
-                    log_success "OAuth2 proxy is responding"
-                    oauth_ok=1
-                fi
+            if $SUDO $COMPOSE_CMD ps oauth2-proxy 2>/dev/null | grep -q "healthy"; then
+                log_success "OAuth2 proxy is healthy"
+                oauth_ok=1
             fi
         fi
 
