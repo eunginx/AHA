@@ -191,14 +191,32 @@ build_images() {
 # ---------------------------------------------------------------------------
 stop_containers() {
     tc_block_open "stop"
-    log_info "Stopping existing containers and removing volumes/networks ..."
-    if $COMPOSE_CMD ps -q 2>/dev/null | grep -q .; then
-        log_info "Stopping containers and removing volumes/networks ..."
-        $COMPOSE_CMD down --volumes --remove-orphans 2>&1 | while read -r line; do log_debug "$line"; done
-        log_success "Containers stopped, volumes and networks removed"
-    else
-        log_info "No running containers found"
+    log_info "Stopping obsidian and oauth2-proxy containers and removing related volumes/networks ..."
+
+    # Stop specific containers
+    if $COMPOSE_CMD ps -q obsidian 2>/dev/null | grep -q .; then
+        log_info "Stopping obsidian container ..."
+        $COMPOSE_CMD stop obsidian 2>&1 | while read -r line; do log_debug "$line"; done
+        $COMPOSE_CMD rm -v obsidian 2>&1 | while read -r line; do log_debug "$line"; done
     fi
+
+    if $COMPOSE_CMD ps -q oauth2-proxy 2>/dev/null | grep -q .; then
+        log_info "Stopping oauth2-proxy container ..."
+        $COMPOSE_CMD stop oauth2-proxy 2>&1 | while read -r line; do log_debug "$line"; done
+        $COMPOSE_CMD rm -v oauth2-proxy 2>&1 | while read -r line; do log_debug "$line"; done
+    fi
+
+    # Remove obsidian-specific network
+    if docker network ls | grep -q "obsidian-net"; then
+        log_info "Removing obsidian-net network ..."
+        docker network rm obsidian-net 2>&1 | while read -r line; do log_debug "$line"; done
+    fi
+
+    # Remove obsidian-specific volumes (named volumes from compose)
+    log_info "Removing obsidian volumes ..."
+    docker volume ls -q | grep -E "obsidian" | xargs -r docker volume rm 2>&1 | while read -r line; do log_debug "$line"; done
+
+    log_success "Obsidian and oauth2-proxy containers stopped, related volumes and networks removed"
     tc_block_close "stop"
 }
 
