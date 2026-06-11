@@ -81,6 +81,13 @@ check_dependencies() {
     tc_block_open "dependencies"
     log_info "Checking Docker / Compose ..."
 
+    # Skip dependency checks if containers are already running
+    if $COMPOSE_CMD ps -q 2>/dev/null | grep -q .; then
+        log_info "Containers already running, skipping dependency checks"
+        tc_block_close "dependencies"
+        return 0
+    fi
+
     if ! command -v docker &>/dev/null; then
         log_error "Docker not found in PATH"
         return 1
