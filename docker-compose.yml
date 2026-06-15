@@ -1,14 +1,4 @@
 services:
-  xvfb:
-    image: alpine:latest
-    container_name: xvfb
-    command: sh -c "apk add --no-cache xorg-server-xvfb && Xvfb :0 -screen 0 1920x1080x24 -ac +extension GLX +render -noreset && tail -f /dev/null"
-    environment:
-      - DISPLAY=:0
-    networks:
-      - obsidian-net
-    restart: unless-stopped
-
   obsidian:
     image: ${OBSIDIAN_IMAGE}
     container_name: ${OBSIDIAN_CONTAINER_NAME}
@@ -23,8 +13,8 @@ services:
       - SELKIES_MODE=websockets
       - SELKIES_ENABLE_CLIPBOARD=true
       - DOCKER_MODS=linuxserver/mods:universal-docker
-      - DISPLAY=:0
-      - PIXELFLUX_WAYLAND=false
+      - PIXELFLUX_WAYLAND=true
+      - WAYLAND_DISPLAY=/config/.XDG/wayland-1
     ports:
       - "${HTTP_PORT}:3000"
       - "${HTTPS_PORT}:3001"
@@ -39,9 +29,6 @@ services:
       start_period: 60s
     security_opt:
       - seccomp:unconfined
-    depends_on:
-      xvfb:
-        condition: service_started
     restart: unless-stopped
     networks:
       - obsidian-net
