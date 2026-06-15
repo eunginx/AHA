@@ -274,11 +274,43 @@ stop_containers() {
 start_containers() {
     tc_block_open "start"
     log_info "Starting containers (detached) with rebuild ..."
-    $SUDO $COMPOSE_CMD up -d --build --remove-orphans 2>&1 | while read -r line; do log_debug "$line"; done
+    
+    # Capture full output of docker compose up
+    local compose_output
+    compose_output=$($SUDO $COMPOSE_CMD up -d --build --remove-orphans 2>&1)
+    local compose_exit=$?
+    
+    # Log the output
+    echo "$compose_output" | while read -r line; do log_debug "$line"; done
+    
+    if [[ $compose_exit -ne 0 ]]; then
+        log_error "docker compose up failed with exit code $compose_exit"
+        log_error "Output: $compose_output"
+        return 1
+    fi
     
     # Log container status after startup
     log_info "Checking container status after startup..."
     $SUDO $COMPOSE_CMD ps 2>&1 || true
+    
+    # Check if containers are actually running, if not try to start them explicitly
+    log_info "Checking if containers need explicit start..."
+    local obs_running
+    local oauth_running
+    
+    obs_running=$($SUDO docker inspect obsidian 2>/dev/null | grep -o '"Running": [^,]*' | cut -d' ' -f2 || echo "false")
+    oauth_running=$($SUDO docker inspect oauth2-proxy 2>/dev/null | grep -o '"Running": [^,]*' | cut -d' ' -f2 || echo "false")
+    
+    log_debug "Obsidian running: $obs_running, OAuth2-proxy running: $oauth_running"
+    
+    if [[ "$obs_running" == "false" ]] || [[ "$oauth_running" == "false" ]]; then
+        log_warn "Containers not running, attempting explicit start..."
+        $SUDO $COMPOSE_CMD start 2>&1 | while read -r line; do log_debug "$line"; done
+        
+        # Check again after explicit start
+        log_info "Checking container status after explicit start..."
+        $SUDO $COMPOSE_CMD ps 2>&1 || true
+    fi
     
     # Log network status
     log_info "Checking Docker networks..."
