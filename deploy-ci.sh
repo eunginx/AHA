@@ -275,6 +275,22 @@ start_containers() {
     tc_block_open "start"
     log_info "Starting containers (detached) with rebuild ..."
     $SUDO $COMPOSE_CMD up -d --build --remove-orphans 2>&1 | while read -r line; do log_debug "$line"; done
+    
+    # Log container status after startup
+    log_info "Checking container status after startup..."
+    $SUDO $COMPOSE_CMD ps 2>&1 || true
+    
+    # Log network status
+    log_info "Checking Docker networks..."
+    $SUDO docker network ls 2>&1 || true
+    
+    # Log individual container network connections
+    log_info "Checking obsidian container network..."
+    $SUDO docker inspect obsidian 2>/dev/null | grep -A 10 Networks || log_warn "Could not inspect obsidian container"
+    
+    log_info "Checking oauth2-proxy container network..."
+    $SUDO docker inspect oauth2-proxy 2>/dev/null | grep -A 10 Networks || log_warn "Could not inspect oauth2-proxy container"
+    
     log_success "Containers started and rebuilt"
     tc_block_close "start"
 }
@@ -293,19 +309,35 @@ wait_for_health() {
     local oauth_ok=0
 
     while [[ $elapsed -lt $max_wait ]]; do
+        # Log current container status each iteration
+        log_debug "Current container status:"
+        $SUDO $COMPOSE_CMD ps 2>&1 || true
+        
         # Check Obsidian (has explicit healthcheck)
         if [[ $obs_ok -eq 0 ]]; then
-            if $SUDO $COMPOSE_CMD ps obsidian 2>/dev/null | grep -q "healthy"; then
+            local obs_status
+            obs_status=$($SUDO $COMPOSE_CMD ps obsidian 2>/dev/null || echo "")
+            log_debug "Obsidian status: $obs_status"
+            if echo "$obs_status" | grep -q "healthy"; then
                 log_success "Obsidian is healthy"
                 obs_ok=1
+            else
+                log_debug "Obsidian not healthy yet, inspecting..."
+                $SUDO docker inspect obsidian 2>/dev/null | grep -A 5 State || true
             fi
         fi
 
         # Check oauth2-proxy (no healthcheck; check if Up)
         if [[ $oauth_ok -eq 0 ]]; then
-            if $SUDO $COMPOSE_CMD ps oauth2-proxy 2>/dev/null | grep -q "Up"; then
+            local oauth_status
+            oauth_status=$($SUDO $COMPOSE_CMD ps oauth2-proxy 2>/dev/null || echo "")
+            log_debug "OAuth2 proxy status: $oauth_status"
+            if echo "$oauth_status" | grep -q "Up"; then
                 log_success "OAuth2 proxy is running"
                 oauth_ok=1
+            else
+                log_debug "OAuth2 proxy not up yet, inspecting..."
+                $SUDO docker inspect oauth2-proxy 2>/dev/null | grep -A 5 State || true
             fi
         fi
 
@@ -324,6 +356,15 @@ wait_for_health() {
     echo ""
     echo "--- Container status ---"
     $SUDO $COMPOSE_CMD ps
+    echo ""
+    echo "--- Docker networks ---"
+    $SUDO docker network ls
+    echo ""
+    echo "--- Obsidian container details ---"
+    $SUDO docker inspect obsidian 2>&1 || true
+    echo ""
+    echo "--- OAuth2-proxy container details ---"
+    $SUDO docker inspect oauth2-proxy 2>&1 || true
     echo ""
     echo "--- Obsidian last 50 lines ---"
     $SUDO $COMPOSE_CMD logs --tail=50 obsidian 2>&1 || true
